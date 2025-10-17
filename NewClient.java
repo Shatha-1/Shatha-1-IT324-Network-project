@@ -107,10 +107,10 @@ private static ArrayList<String> registeredUsers = new ArrayList<>();
                 }
             }//if nothing is available
             if (available.isEmpty()) {
-            out.println("Available slots for " + dayName + " for " + duration + " day(s): none");
+            out.println("none");
             continue;}
             
-            out.println("Available slots for " + dayName + " for " + duration + " day(s) are: " + available);
+            out.println(available);
 
         
         
