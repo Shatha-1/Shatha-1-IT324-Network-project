@@ -11,6 +11,10 @@ import javax.swing.JOptionPane;
 
 public class reservationFrame extends javax.swing.JFrame {
 
+    private boolean waitingForSlot = false;  // true after user click "Show Available" 
+  
+    private String lastSlotPrompt = null;   //to save last prompt from server    
+
     private Socket socket;
     private PrintWriter out;
     private BufferedReader in;
@@ -196,102 +200,125 @@ public class reservationFrame extends javax.swing.JFrame {
     }//GEN-LAST:event_jComboBox1ActionPerformed
 
     private void jButton2ActionPerformed(java.awt.event.ActionEvent evt) {//GEN-FIRST:event_jButton2ActionPerformed
-     // show available slots
-        try {
-           
-        //  read values from the input fileds
-        String location = ((String) jComboBox1.getSelectedItem()).trim();
-        String   day    = ((String) jComboBox2.getSelectedItem()).trim(); 
-        String duration = ((String) jComboBox3.getSelectedItem()).trim();
-        
-        //if any of them is empty
-        if (location == null || day == null || duration == null) {
-            javax.swing.JOptionPane.showMessageDialog(this, "Please choose location, day, and duration.");
+   // show available slots
+  try {
+        // read input
+        Object locObj = jComboBox1.getSelectedItem();
+        Object dayObj = jComboBox2.getSelectedItem();
+        Object durObj = jComboBox3.getSelectedItem();
+
+        if (locObj == null || dayObj == null || durObj == null) {
+            JOptionPane.showMessageDialog(this, "Please choose location, day, and duration.");
             return;
         }
 
-        //send location ,day and duration to server
-        in.readLine();
-        out.println(location);
+        String location = locObj.toString().trim();
+        String day      = dayObj.toString().trim();
+        String duration = durObj.toString().trim();
+        if (duration.isBlank()) {
+            JOptionPane.showMessageDialog(this, "Please choose a duration (1-7).");
+            return;
+        }
 
-        in.readLine();
-        out.println(day);
+        // If server is waiting for a slot from a previous try:reset the flow
+        if (waitingForSlot) {
+            out.println("RESET");
+            waitingForSlot = false;
+            lastSlotPrompt = null;
+        }
 
-        in.readLine();
-        out.println(duration);
+        // send data to server
+    in.readLine();      
+    out.println(location);
 
-        //  get available slots from server
-        String availableSlots = in.readLine();
+    in.readLine();      
+    out.println(day);
 
-        // if server says none available
-        if (availableSlots.contains("none")) {
+    in.readLine();      
+    out.println(duration);
+
+
+        // Read the line of available slots 
+        String availableLine = in.readLine();  
+        if (availableLine == null || availableLine.trim().equalsIgnoreCase("none")) {
             JOptionPane.showMessageDialog(this, "No slots available for this selection, try again.");
+            waitingForSlot = false;
+            lastSlotPrompt = null;
             return;
         }
 
-        // else: show slot numbers 
-        String[] slotsArray = availableSlots.split(",");
-            jComboBox4.removeAllItems();
-            for (String s : slotsArray) {
-                jComboBox4.addItem(s.trim());
-            }
+        // Fill the slots combo with values sent by server
+        jComboBox4.removeAllItems();
+        for (String s : availableLine.split(",")) {
+            String t = s.trim();
+            if (!t.isEmpty()) jComboBox4.addItem(t);
+        }
+        
+        
+        //***********************************************************
+        // receive and store the server prompt for chosen slot number
+        lastSlotPrompt = in.readLine(); 
+        if (lastSlotPrompt == null || !lastSlotPrompt.toLowerCase().contains("enter slot number")) {
+          // If prompt not recieved assume server is waiting for the slot
+            lastSlotPrompt = "pending";
+        }
 
-
- 
-        // show the slot dropdown and reserve button
-        JOptionPane.showMessageDialog(this, "Available slots loaded.");
+        // show the avialable slots in the UI
         jComboBox4.setVisible(true);
         jButton3.setVisible(true);
         jLabel6.setVisible(true);
+        JOptionPane.showMessageDialog(this, "Available slots loaded.");
+        waitingForSlot = true;
 
     } catch (Exception e) {
-        javax.swing.JOptionPane.showMessageDialog(this, "Error: " + e.getMessage());
+        JOptionPane.showMessageDialog(this, "Error: " + e.getMessage());
+        waitingForSlot = false;
+        lastSlotPrompt = null;
     }
-
-
-
-
-
-        
     }//GEN-LAST:event_jButton2ActionPerformed
+
+
+
+
 
     private void jButton3ActionPerformed(java.awt.event.ActionEvent evt) {//GEN-FIRST:event_jButton3ActionPerformed
         // reserve
-        try{
-            
-        
+      try {
         String slot = (String) jComboBox4.getSelectedItem();
         if (slot == null || slot.isBlank()) {
             JOptionPane.showMessageDialog(this, "Please choose a slot first.");
-            return;}
-        
-       //send slot to server
-         in.readLine();
-         out.println(slot.trim());
+            return;
+        }
 
-        //receive server response
+        //send chosen slot to server
+        out.println(slot.trim());
+
+        // Read confirmation
         String confirm = in.readLine();
         if (confirm == null) confirm = "No confirmation from server.";
-
         JOptionPane.showMessageDialog(this, confirm);
 
-        // If reservation successful return to main page
-            if (confirm.toLowerCase().contains("confirmed")) {
-                try { socket.close(); } catch (Exception ignore) {}
-                socket = null; out = null; in = null;
+        // Reset helping varaibles 
+        waitingForSlot = false;
+        lastSlotPrompt = null;
 
-                new mainFrame().setVisible(true);
-                this.dispose();
-
-
+         // If confirmed, close the socket and go back to main
+        if (confirm.toLowerCase().contains("confirmed")) {
+            try { socket.close(); } catch (Exception ignore) {}
+            socket = null; out = null; in = null;
+            new mainFrame().setVisible(true);
+            this.dispose();
         }
-        
-        } catch (Exception e) {
+
+    } catch (Exception e) {
         JOptionPane.showMessageDialog(this, "Error: " + e.getMessage());
+        waitingForSlot = false;
+        lastSlotPrompt = null;
     }
 
-        
     }//GEN-LAST:event_jButton3ActionPerformed
+
+
 
     private void jComboBox2ActionPerformed(java.awt.event.ActionEvent evt) {//GEN-FIRST:event_jComboBox2ActionPerformed
         // choose day
@@ -305,7 +332,8 @@ public class reservationFrame extends javax.swing.JFrame {
         // select slot
     }//GEN-LAST:event_jComboBox4ActionPerformed
 
-   
+
+
   
 
     // Variables declaration - do not modify//GEN-BEGIN:variables

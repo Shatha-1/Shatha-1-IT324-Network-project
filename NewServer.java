@@ -1,6 +1,5 @@
 
-
-package com.mycompany.lab3;
+package labnetwork;
 
 import java.io.*; 
 import java.net.Socket;
@@ -15,7 +14,7 @@ public class NewServer
     {
         ServerSocket serverSocket = new ServerSocket(9090);
         
-        System.out.println(" Parking Reservation Server Started...");
+        System.out.println("Parking Reservation Server Started...");
 
         while (true){
          System.out.println("Waiting for client connection");
@@ -28,4 +27,3 @@ public class NewServer
         }
     }
 }
-
